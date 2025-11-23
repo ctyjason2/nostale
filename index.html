@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>夢之歷險 NosTale - Dark Premium</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&family=Exo+2:wght@300;600;900&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <style>
+        /* --- 核心設定 --- */
+        :root {
+            --primary-glow: #00d2ff;
+            --glass-bg: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+        }
+
+        html {
+            scroll-snap-type: y mandatory; /* 啟用全屏吸附 */
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Exo 2', sans-serif;
+            background-color: #050505;
+            color: #ffffff;
+            overflow-x: hidden;
+            /* 隱藏默認滾動條，使用自定義導航 */
+        }
+
+        /* --- 通用類與特效 --- */
+        .font-title { font-family: 'Mochiy Pop One', sans-serif; }
+        
+        /* 鏡面玻璃效果 */
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--glass-shadow);
+        }
+
+        .glass-text {
+            background: linear-gradient(135deg, rgba(255,255,255,1) 0%, rgba(255,255,255,0.6) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 20px rgba(255,255,255,0.1);
+        }
+
+        /* 全屏 Section 設定 */
+        section {
+            height: 100vh;
+            width: 100vw;
+            scroll-snap-align: start;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* 背景動態噪點 (增加質感) */
+        .noise-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MDAiIGhlaWdodD0iNTAwIj48ZmlsdGVyIGlkPSJnoiPjxmZVR1cmJ1bGVuY2UgdHlwZT0iZnJhY3RhbE5vaXNlIiBiYXNlRnJlcXVlbmN5PSIwLjY1IiBudW1PY3RhdmVzPSIzIiBzdGl0Y2hUaWxlcz0ic3RpdGNoIi8+PC9maWx0ZXI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsdGVyPSJ1cmwoI2cpIiBvcGFjaXR5PSIwLjAzIi8+PC9zdmc+');
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        /* --- 角色定位系統 (關鍵) --- */
+        /* PC版：左側 50% 空間內，分為 5 個槽位。
+           每個槽位寬度約 10% ~ 15%，稍微交錯。
+           Slot 1: left 5%
+           Slot 2: left 15%
+           Slot 3: left 25%
+           Slot 4: left 35%
+           Slot 5: left 45%
+        */
+        .char-img {
+            position: absolute;
+            bottom: 0;
+            height: 85vh;
+            width: auto;
+            object-fit: contain;
+            filter: drop-shadow(0 0 15px rgba(0,0,0,0.8));
+            transition: all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1); /* 彈性動畫 */
+            opacity: 0;
+            transform: translateY(50px) scale(0.9);
+            z-index: 10;
+        }
+
+        /* 活躍狀態的人物 */
+        .active-section .char-img {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+
+        /* 手機版適配 */
+        @media (max-width: 768px) {
+            .char-img {
+                position: relative;
+                height: 50vh;
+                left: auto !important;
+                margin-bottom: 2rem;
+                transform: translateY(20px);
+            }
+            section {
+                flex-direction: column;
+                justify-content: flex-end;
+                padding-bottom: 80px; /* 留空間給文字 */
+            }
+            .char-container-mobile {
+                position: absolute;
+                top: 10%;
+                width: 100%;
+                display: flex;
+                justify-content: center;
+                pointer-events: none;
+            }
+        }
+
+        /* --- 導航點 --- */
+        .nav-dots {
+            position: fixed;
+            right: 30px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 50;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            align-items: flex-end; /* 文字靠右 */
+        }
+        .dot-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            opacity: 0.4;
+        }
+        .dot-item:hover, .dot-item.active {
+            opacity: 1;
+        }
+        .dot-text {
+            color: white;
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0;
+            transform: translateX(10px);
+            transition: all 0.3s;
+            text-shadow: 0 0 10px rgba(0,0,0,0.8);
+        }
+        .dot-item.active .dot-text {
+            opacity: 1;
+            transform: translateX(0);
+            color: var(--primary-glow);
+        }
+        .dot-circle {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: white;
+            box-shadow: 0 0 10px rgba(255,255,255,0.5);
+            transition: all 0.3s;
+        }
+        .dot-item.active .dot-circle {
+            background: var(--primary-glow);
+            box-shadow: 0 0 15px var(--primary-glow);
+            transform: scale(1.3);
+        }
+
+        /* --- 3D Cube --- */
+        .cube-scene {
+            perspective: 2000px;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            background: radial-gradient(circle at center, #1a1a1a 0%, #000000 100%);
+        }
+        .cube {
+            width: 80vw;
+            height: 80vh;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.1s ease-out; /* 實時反應 */
+        }
+        .cube-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8); /* 深色背景 */
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            color: white;
+            backface-visibility: visible; /* 鏡面效果需要看到背面 */
+            box-shadow: inset 0 0 100px rgba(0,0,0,0.9);
+            overflow: hidden;
+        }
+        /* 高級鏡面內容 */
+        .cube-content {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 40px;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .cube-bg-img {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0.6;
+            transition: transform 0.5s;
+        }
+        .cube-face:hover .cube-bg-img {
+            transform: scale(1.1);
+        }
+
+        /* 定義四面位置 (全屏正方體邏輯) */
+        /* 假設寬度是 80vw，translateZ 應該是寬度的一半 */
+        /* 這裡為了簡單演示，我們用固定像數配合 JS 縮放 */
+        .face-front  { transform: rotateY(0deg) translateZ(40vw); }
+        .face-right  { transform: rotateY(90deg) translateZ(40vw); }
+        .face-back   { transform: rotateY(180deg) translateZ(40vw); }
+        .face-left   { transform: rotateY(-90deg) translateZ(40vw); }
+
+        @media (max-width: 768px) {
+            .cube { width: 80vw; height: 80vw; } /* 手機變正方形 */
+            .face-front  { transform: rotateY(0deg) translateZ(40vw); }
+            .face-right  { transform: rotateY(90deg) translateZ(40vw); }
+            .face-back   { transform: rotateY(180deg) translateZ(40vw); }
+            .face-left   { transform: rotateY(-90deg) translateZ(40vw); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="noise-overlay"></div>
+
+    <!-- Navigation Dots -->
+    <nav class="nav-dots" id="navDots">
+        <!-- JS 將自動生成這些點 -->
+    </nav>
+
+    <!-- Section 1: Banner -->
+    <section id="sec-home" data-label="首頁 Home" class="relative z-10">
+        <!-- 背景影片或高畫質圖 -->
+        <div class="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=2094&auto=format&fit=crop')] bg-cover bg-center opacity-40"></div>
+        <div class="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black"></div>
+        
+        <div class="relative text-center z-20">
+            <h1 class="text-6xl md:text-9xl font-bold font-title tracking-widest text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-500 drop-shadow-[0_0_25px_rgba(255,255,255,0.4)]">
+                夢之歷險
+            </h1>
+            <h2 class="text-4xl md:text-7xl font-thin mt-2 tracking-[1.5rem] md:tracking-[3rem] text-[#00d2ff] uppercase opacity-80" style="font-family: 'Exo 2';">
+                NosTale
+            </h2>
+            <div class="mt-12 glass-panel inline-block px-8 py-3 rounded-full text-sm tracking-widest uppercase text-gray-300">
+                The Tale of Nomads of Silver Spirit
+            </div>
+            
+            <div class="absolute bottom-[-30vh] left-1/2 transform -translate-x-1/2 animate-bounce opacity-50">
+                <i class="fa-solid fa-chevron-down text-2xl"></i>
+            </div>
+        </div>
+    </section>
+
+    <!-- Template for Characters: Left 50% positioning logic -->
+    <!-- Character 1: Adventurer (Slot 1: 5%) -->
+    <section id="sec-adv" data-label="冒險家 Adventurer" class="bg-black relative group">
+        <div class="absolute inset-0 bg-gradient-to-r from-[#FF4500]/10 to-transparent pointer-events-none"></div>
+        
+        <!-- Mobile Container -->
+        <div class="char-container-mobile md:hidden">
+            <img src="https://svgur.com/i/100.svg" class="char-img" alt="Adventurer Placeholder"> 
+            <!-- 替換真實圖片 src -->
+        </div>
+
+        <!-- Desktop Layout -->
+        <div class="hidden md:block absolute w-full h-full top-0 left-0 pointer-events-none">
+            <!-- Slot 1 -->
+            <img src="https://api.iconify.design/game-icons:abdominal-armor.svg?color=%23ff4444" class="char-img left-[5%]" style="height: 80vh; width: auto; filter: drop-shadow(0 0 20px #ff4444);" alt="Adventurer Art">
+        </div>
+
+        <!-- Right Text Content -->
+        <div class="absolute right-0 md:right-[10%] w-full md:w-[40%] p-8 text-right md:text-left flex flex-col justify-center h-full z-20">
+            <div class="glass-panel p-8 rounded-tl-3xl rounded-br-3xl border-l-4 border-red-500">
+                <h3 class="text-5xl font-title text-red-500 mb-2">冒險家</h3>
+                <h4 class="text-xl text-gray-400 tracking-widest mb-6">THE ADVENTURER</h4>
+                <p class="text-gray-300 leading-relaxed mb-8">
+                    一切傳奇的起點。擁有無限可能性的初心者，雖然沒有專精的技能，但卻擁有最純粹的勇氣。
+                </p>
+                <button onclick="openVideo('冒險家', '#ef4444')" class="px-8 py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded-none skew-x-[-10deg] transition shadow-[0_0_20px_rgba(220,38,38,0.5)]">
+                    <span class="skew-x-[10deg] inline-block"><i class="fa-solid fa-play mr-2"></i> 技能展示</span>
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Character 2: Archer (Slot 2: 15%) -->
+    <section id="sec-arch" data-label="弓手 Archer" class="bg-[#0a0f0a] relative">
+        <div class="absolute inset-0 bg-gradient-to-r from-[#10B981]/10 to-transparent pointer-events-none"></div>
+        
+        <div class="char-container-mobile md:hidden">
+             <img src="https://api.iconify.design/game-icons:pocket-bow.svg?color=%2310b981" class="char-img" alt="Archer Mobile">
+        </div>
+
+        <div class="hidden md:block absolute w-full h-full top-0 left-0 pointer-events-none">
+            <!-- Slot 2 -->
+            <img src="https://api.iconify.design/game-icons:pocket-bow.svg?color=%2310b981" class="char-img left-[15%]" style="height: 80vh; width: auto; filter: drop-shadow(0 0 20px #10b981);" alt="Archer Art">
+        </div>
+
+        <div class="absolute right-0 md:right-[10%] w-full md:w-[40%] p-8 flex flex-col justify-center h-full z-20">
+            <div class="glass-panel p-8 rounded-tl-3xl rounded-br-3xl border-l-4 border-green-500">
+                <h3 class="text-5xl font-title text-green-400 mb-2">弓手</h3>
+                <h4 class="text-xl text-gray-400 tracking-widest mb-6">THE ARCHER</h4>
+                <p class="text-gray-300 leading-relaxed mb-8">
+                    迅捷如風，百步穿楊。他們是森林的獵手，用致命的箭矢在敵人接近前終結戰鬥。
+                </p>
+                <button onclick="openVideo('弓手', '#10b981')" class="px-8 py-3 bg-green-600 hover:bg-green-500 text-white font-bold rounded-none skew-x-[-10deg] transition shadow-[0_0_20px_rgba(16,185,129,0.5)]">
+                    <span class="skew-x-[10deg] inline-block"><i class="fa-solid fa-play mr-2"></i> 技能展示</span>
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Character 3: Swordsman (Slot 3: 25%) -->
+    <section id="sec-sword" data-label="劍士 Swordsman" class="bg-[#0a0a12] relative">
+        <div class="absolute inset-0 bg-gradient-to-r from-[#3B82F6]/10 to-transparent pointer-events-none"></div>
+
+        <div class="char-container-mobile md:hidden">
+             <img src="https://api.iconify.design/game-icons:broadsword.svg?color=%233b82f6" class="char-img" alt="Swordsman Mobile">
+        </div>
+
+        <div class="hidden md:block absolute w-full h-full top-0 left-0 pointer-events-none">
+            <!-- Slot 3 -->
+            <img src="https://api.iconify.design/game-icons:broadsword.svg?color=%233b82f6" class="char-img left-[25%]" style="height: 80vh; width: auto; filter: drop-shadow(0 0 20px #3b82f6);" alt="Swordsman Art">
+        </div>
+
+        <div class="absolute right-0 md:right-[10%] w-full md:w-[40%] p-8 flex flex-col justify-center h-full z-20">
+            <div class="glass-panel p-8 rounded-tl-3xl rounded-br-3xl border-l-4 border-blue-500">
+                <h3 class="text-5xl font-title text-blue-500 mb-2">劍士</h3>
+                <h4 class="text-xl text-gray-400 tracking-widest mb-6">THE SWORDSMAN</h4>
+                <p class="text-gray-300 leading-relaxed mb-8">
+                    堅如磐石，衝鋒陷陣。擁有強健的體魄與精湛的劍術，是隊伍中最可靠的守護者。
+                </p>
+                <button onclick="openVideo('劍士', '#3b82f6')" class="px-8 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-none skew-x-[-10deg] transition shadow-[0_0_20px_rgba(59,130,246,0.5)]">
+                    <span class="skew-x-[10deg] inline-block"><i class="fa-solid fa-play mr-2"></i> 技能展示</span>
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Character 4: Mage (Slot 4: 35%) -->
+    <section id="sec-mage" data-label="咒術師 Mage" class="bg-[#0f0511] relative">
+        <div class="absolute inset-0 bg-gradient-to-r from-[#A855F7]/10 to-transparent pointer-events-none"></div>
+        
+        <div class="char-container-mobile md:hidden">
+             <img src="https://api.iconify.design/game-icons:burning-book.svg?color=%23a855f7" class="char-img" alt="Mage Mobile">
+        </div>
+
+        <div class="hidden md:block absolute w-full h-full top-0 left-0 pointer-events-none">
+            <!-- Slot 4 -->
+            <img src="https://api.iconify.design/game-icons:burning-book.svg?color=%23a855f7" class="char-img left-[35%]" style="height: 80vh; width: auto; filter: drop-shadow(0 0 20px #a855f7);" alt="Mage Art">
+        </div>
+
+        <div class="absolute right-0 md:right-[10%] w-full md:w-[40%] p-8 flex flex-col justify-center h-full z-20">
+            <div class="glass-panel p-8 rounded-tl-3xl rounded-br-3xl border-l-4 border-purple-500">
+                <h3 class="text-5xl font-title text-purple-400 mb-2">咒術師</h3>
+                <h4 class="text-xl text-gray-400 tracking-widest mb-6">THE MAGE</h4>
+                <p class="text-gray-300 leading-relaxed mb-8">
+                    掌控元素，毀天滅地。吟唱著古老的咒語，或是給予敵人毀滅打擊，或是治癒受傷的隊友。
+                </p>
+                <button onclick="openVideo('咒術師', '#a855f7')" class="px-8 py-3 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-none skew-x-[-10deg] transition shadow-[0_0_20px_rgba(168,85,247,0.5)]">
+                    <span class="skew-x-[10deg] inline-block"><i class="fa-solid fa-play mr-2"></i> 技能展示</span>
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Character 5: Fighter (Slot 5: 45%) -->
+    <section id="sec-fight" data-label="拳師 Martial Artist" class="bg-[#110f05] relative">
+        <div class="absolute inset-0 bg-gradient-to-r from-[#EAB308]/10 to-transparent pointer-events-none"></div>
+        
+        <div class="char-container-mobile md:hidden">
+             <img src="https://api.iconify.design/game-icons:fist.svg?color=%23eab308" class="char-img" alt="Fighter Mobile">
+        </div>
+
+        <div class="hidden md:block absolute w-full h-full top-0 left-0 pointer-events-none">
+            <!-- Slot 5 -->
+            <img src="https://api.iconify.design/game-icons:fist.svg?color=%23eab308" class="char-img left-[45%]" style="height: 80vh; width: auto; filter: drop-shadow(0 0 20px #eab308);" alt="Fighter Art">
+        </div>
+
+        <div class="absolute right-0 md:right-[10%] w-full md:w-[40%] p-8 flex flex-col justify-center h-full z-20">
+            <div class="glass-panel p-8 rounded-tl-3xl rounded-br-3xl border-l-4 border-yellow-500">
+                <h3 class="text-5xl font-title text-yellow-400 mb-2">拳師</h3>
+                <h4 class="text-xl text-gray-400 tracking-widest mb-6">MARTIAL ARTIST</h4>
+                <p class="text-gray-300 leading-relaxed mb-8">
+                    以武入道，拳破蒼穹。捨棄武器，將肉體鍛鍊至極致，以迅雷不及掩耳的體術制敵。
+                </p>
+                <button onclick="openVideo('拳師', '#eab308')" class="px-8 py-3 bg-yellow-600 hover:bg-yellow-500 text-white font-bold rounded-none skew-x-[-10deg] transition shadow-[0_0_20px_rgba(234,179,8,0.5)]">
+                    <span class="skew-x-[10deg] inline-block"><i class="fa-solid fa-play mr-2"></i> 技能展示</span>
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section 6: All Classes Assemble -->
+    <section id="sec-all" data-label="全員集結 Assembly" class="bg-gradient-to-t from-[#050505] to-[#1a1a1a] relative overflow-hidden">
+        
+        <!-- 背景光束 -->
+        <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-blue-900/30 via-transparent to-transparent"></div>
+
+        <!-- Desktop: All 5 Characters at once -->
+        <div class="hidden md:block absolute w-full h-full top-0 left-0 pointer-events-none z-10">
+            <img src="https://api.iconify.design/game-icons:abdominal-armor.svg?color=%23ff4444" class="char-img left-[5%]" style="height: 60vh; filter: drop-shadow(0 0 20px #ff4444);" alt="Adv">
+            <img src="https://api.iconify.design/game-icons:pocket-bow.svg?color=%2310b981" class="char-img left-[15%]" style="height: 60vh; filter: drop-shadow(0 0 20px #10b981);" alt="Arch">
+            <img src="https://api.iconify.design/game-icons:broadsword.svg?color=%233b82f6" class="char-img left-[25%]" style="height: 65vh; filter: drop-shadow(0 0 20px #3b82f6); z-index:12;" alt="Sword">
+            <img src="https://api.iconify.design/game-icons:burning-book.svg?color=%23a855f7" class="char-img left-[35%]" style="height: 60vh; filter: drop-shadow(0 0 20px #a855f7);" alt="Mage">
+            <img src="https://api.iconify.design/game-icons:fist.svg?color=%23eab308" class="char-img left-[45%]" style="height: 60vh; filter: drop-shadow(0 0 20px #eab308);" alt="Fight">
+        </div>
+
+        <!-- Right content -->
+        <div class="relative z-20 text-center md:text-right md:absolute md:right-[10%] md:w-[35%]">
+            <h2 class="text-5xl md:text-7xl font-title glass-text mb-6">傳奇集結</h2>
+            <p class="text-gray-300 mb-8 text-lg">
+                你的冒險，由此開始。<br>選擇你的命定職業，加入百萬玩家的行列。
+            </p>
+            
+            <button class="group relative px-12 py-4 bg-transparent overflow-hidden rounded-none border border-white/50 hover:border-[#00d2ff] transition-all duration-300">
+                <div class="absolute inset-0 w-0 bg-[#00d2ff] transition-all duration-[250ms] ease-out group-hover:w-full opacity-20"></div>
+                <span class="relative text-2xl font-bold tracking-widest text-white group-hover:text-[#00d2ff] transition-colors">
+                    立即遊玩
+                </span>
+            </button>
+        </div>
+    </section>
+
+    <!-- Section 7: 3D Cube World -->
+    <section id="sec-cube" data-label="世界地圖 World Map" class="relative bg-black">
+        <div class="cube-scene" id="cubeScene">
+            <div class="cube" id="worldCube">
+                <!-- Front: Milan -->
+                <div class="cube-face face-front">
+                    <img src="https://images.unsplash.com/photo-1598556776374-61eb4f472616?q=80&w=2070" class="cube-bg-img" alt="Milan">
+                    <div class="cube-content">
+                        <h3 class="text-5xl font-title text-green-400">米蘭村</h3>
+                        <p class="mt-2 uppercase tracking-widest">Village of Beginnings</p>
+                    </div>
+                </div>
+                <!-- Right: Krem -->
+                <div class="cube-face face-right">
+                    <img src="https://images.unsplash.com/photo-1462331940025-496dfbfc7564?q=80&w=2111" class="cube-bg-img" alt="Krem">
+                    <div class="cube-content">
+                        <h3 class="text-5xl font-title text-red-500">克雷姆</h3>
+                        <p class="mt-2 uppercase tracking-widest">Mountain of Fire</p>
+                    </div>
+                </div>
+                <!-- Back: Ice -->
+                <div class="cube-face face-back">
+                    <img src="https://images.unsplash.com/photo-1548266652-99cf27701ced?q=80&w=1935" class="cube-bg-img" alt="Ice">
+                    <div class="cube-content">
+                        <h3 class="text-5xl font-title text-cyan-400">冰封冠</h3>
+                        <p class="mt-2 uppercase tracking-widest">Frozen Tundra</p>
+                    </div>
+                </div>
+                <!-- Left: Desert -->
+                <div class="cube-face face-left">
+                    <img src="https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?q=80&w=2070" class="cube-bg-img" alt="Desert">
+                    <div class="cube-content">
+                        <h3 class="text-5xl font-title text-yellow-500">莫爾提斯</h3>
+                        <p class="mt-2 uppercase tracking-widest">Lost Desert</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 提示 -->
+        <div class="absolute bottom-10 left-1/2 transform -translate-x-1/2 text-gray-500 text-sm pointer-events-none animate-pulse">
+            SCROLL TO EXPLORE
+        </div>
+        
+        <!-- 回到頂部 -->
+        <div onclick="window.scrollTo({top: 0, behavior: 'smooth'})" class="absolute bottom-10 right-10 w-12 h-12 rounded-full border border-white/30 flex items-center justify-center cursor-pointer hover:bg-white/10 hover:border-[#00d2ff] transition z-50 text-white">
+            <i class="fa-solid fa-arrow-up"></i>
+        </div>
+    </section>
+
+    <!-- Video Modal -->
+    <div id="videoModal" class="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md hidden flex items-center justify-center opacity-0 transition-opacity duration-500">
+        <div class="w-full max-w-4xl p-4 relative">
+            <button onclick="closeVideo()" class="absolute -top-12 right-0 text-white hover:text-red-500 text-2xl transition"><i class="fa-solid fa-xmark"></i> 關閉</button>
+            <div class="aspect-video w-full bg-black rounded-lg overflow-hidden border border-white/20 shadow-[0_0_50px_rgba(255,255,255,0.1)] flex items-center justify-center text-white">
+                <div class="text-center">
+                    <i class="fa-brands fa-youtube text-6xl text-red-600 mb-4"></i>
+                    <h3 id="modalTitle" class="text-2xl font-bold">技能展示</h3>
+                    <p class="text-gray-500 mt-2">Video Player Simulation</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. 初始化導航點 ---
+        const sections = document.querySelectorAll('section');
+        const navContainer = document.getElementById('navDots');
+
+        sections.forEach((sec, index) => {
+            const label = sec.getAttribute('data-label');
+            const dot = document.createElement('div');
+            dot.className = `dot-item ${index === 0 ? 'active' : ''}`;
+            dot.innerHTML = `
+                <span class="dot-text">${label}</span>
+                <div class="dot-circle"></div>
+            `;
+            dot.onclick = () => {
+                sec.scrollIntoView({ behavior: 'smooth' });
+            };
+            navContainer.appendChild(dot);
+        });
+
+        // --- 2. Intersection Observer (監聽當前頁面) ---
+        const observerOptions = {
+            threshold: 0.5
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    // Update Navigation
+                    const index = Array.from(sections).indexOf(entry.target);
+                    document.querySelectorAll('.dot-item').forEach(d => d.classList.remove('active'));
+                    if(navContainer.children[index]) {
+                        navContainer.children[index].classList.add('active');
+                    }
+
+                    // Add class for animations
+                    entry.target.classList.add('active-section');
+
+                    // Special logic for Cube section
+                    if (entry.target.id === 'sec-cube') {
+                        enableCubeControl();
+                    } else {
+                        disableCubeControl();
+                    }
+                } else {
+                    entry.target.classList.remove('active-section');
+                }
+            });
+        }, observerOptions);
+
+        sections.forEach(sec => observer.observe(sec));
+
+        // --- 3. 3D Cube Logic (滾動縮放與旋轉) ---
+        const cubeSection = document.getElementById('sec-cube');
+        const cube = document.getElementById('worldCube');
+        let isCubeActive = false;
+        let rotationY = 0;
+        let scale = 1.2; // 初始全屏放大
+
+        function handleCubeScroll(e) {
+            if (!isCubeActive) return;
+            
+            // 阻止默認滾動，轉為控制方塊 (選用，但為了順暢體驗建議允許滾動穿過)
+            // 這裡我們做一個簡單的效果：根據滾動距離旋轉
+            // 但因為使用了 Scroll Snap，我們監聽 wheel 事件來做微調
+            
+            const delta = e.deltaY * 0.2;
+            rotationY += delta;
+            
+            // 縮放邏輯：滾動時稍微縮小
+            if (Math.abs(e.deltaY) > 0) {
+                scale = Math.max(0.8, scale - 0.01);
+            } else {
+                scale = Math.min(1.2, scale + 0.01);
+            }
+
+            updateCubeTransform();
+        }
+
+        function updateCubeTransform() {
+            // 基礎旋轉 + 縮放
+            // 注意：translateZ 必須與 CSS 中定義的一致或動態計算
+            // 這裡簡化，直接操作 scale 和 rotateY
+            cube.style.transform = `scale(${scale}) rotateY(-${rotationY}deg)`;
+        }
+
+        function enableCubeControl() {
+            isCubeActive = true;
+            scale = 1.2; // Reset
+            rotationY = 0;
+            updateCubeTransform();
+            window.addEventListener('wheel', handleCubeScroll);
+        }
+
+        function disableCubeControl() {
+            isCubeActive = false;
+            window.removeEventListener('wheel', handleCubeScroll);
+        }
+        
+        // Auto rotate cube slightly
+        setInterval(() => {
+            if(isCubeActive) {
+               // rotationY += 0.1;
+               // updateCubeTransform();
+            }
+        }, 16);
+
+
+        // --- 4. Video Modal ---
+        function openVideo(title, color) {
+            const modal = document.getElementById('videoModal');
+            document.getElementById('modalTitle').textContent = title + " 技能演示";
+            document.getElementById('modalTitle').style.color = color;
+            
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+            }, 10);
+        }
+
+        function closeVideo() {
+            const modal = document.getElementById('videoModal');
+            modal.classList.add('opacity-0');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 500);
+        }
+
+        // Mobile adjustments logic if needed (Tailwind handles most)
+    </script>
+</body>
+</html>
